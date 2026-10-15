@@ -474,6 +474,100 @@
             animation: winBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
+        .giveup-modal {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(13, 17, 38, 0.72);
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 3000;
+        }
+
+        .giveup-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .giveup-box {
+            background: #ffffff;
+            color: #3b1740;
+            padding: 30px 24px 26px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            max-width: 90vw;
+            width: 340px;
+            position: relative;
+            animation: winBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .giveup-title {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            color: #ff3366;
+        }
+
+        .giveup-sub {
+            font-size: 15px;
+            font-weight: 700;
+            color: #7a4662;
+            margin-bottom: 22px;
+            line-height: 1.4;
+        }
+
+        .giveup-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            min-height: 48px;
+            position: relative;
+        }
+
+        .btn-giveup-yes {
+            background: #e2e8f0;
+            color: #475569;
+            border: none;
+            padding: 10px 18px;
+            font-size: 15px;
+            font-weight: 800;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-giveup-yes:hover {
+            background: #cbd5e1;
+        }
+
+        .btn-giveup-no {
+            background: linear-gradient(135deg, #ff5d8f 0%, #ff2a6d 100%);
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: 800;
+            border-radius: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(255, 42, 109, 0.4);
+            transition: transform 0.12s ease-out;
+            white-space: nowrap;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .btn-giveup-no.fleeing {
+            position: fixed;
+            z-index: 3100;
+            box-shadow: 0 8px 24px rgba(255, 42, 109, 0.6);
+        }
+
         @keyframes winBounce {
             0% { transform: scale(0.8); opacity: 0; }
             100% { transform: scale(1); opacity: 1; }
@@ -671,6 +765,18 @@
         </div>
     </div>
 
+    <!-- Popup trêu chọc khi chơi lại 5 lần liên tiếp -->
+    <div class="giveup-modal" id="giveup-modal" aria-hidden="true">
+        <div class="giveup-box">
+            <div class="giveup-title">Em bỏ cuộc điii 😜</div>
+            <div class="giveup-sub">Chơi lại 5 lần rồi nè, khó quá thì bỏ cuộc nha?</div>
+            <div class="giveup-actions" id="giveup-actions-container">
+                <button class="btn-giveup-yes" id="btn-giveup-yes" type="button">Bỏ cuộc 🥺</button>
+                <button class="btn-giveup-no" id="btn-giveup-no" type="button">Không bỏ cuộc! 😤</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Danh sách các khối chuẩn và khối cực khó
         const ALL_SHAPES = {
@@ -749,6 +855,14 @@
         const endCardEl = document.getElementById('end-card');
         const winCardEl = document.getElementById('win-card');
         const btnWinClose = document.getElementById('btn-win-close');
+        const giveupModalEl = document.getElementById('giveup-modal');
+        const btnGiveupYes = document.getElementById('btn-giveup-yes');
+        const btnGiveupNo = document.getElementById('btn-giveup-no');
+        const giveupActionsContainer = document.getElementById('giveup-actions-container');
+
+        let restartCounter = 0;
+        let isGiveupActive = false;
+        let runawayAttempts = 0;
 
         const recentColors = [];
         let clearFeedbackIndex = 0;
@@ -1521,9 +1635,110 @@
             }
         });
 
-        if (btnRestart) {
-            btnRestart.addEventListener('click', () => {
+        function handleRestartGame() {
+            restartCounter++;
+            
+            // Cứ mỗi 5 lần chơi lại liên tiếp thì hiện popup trêu chọc
+            if (restartCounter % 5 === 0) {
+                showGiveupModal();
+            } else {
                 loadLevel(currentLevel);
+            }
+        }
+
+        if (btnRestart) {
+            btnRestart.addEventListener('click', handleRestartGame);
+        }
+
+        // Logic điều khiển Popup Em bỏ cuộc điii
+        function showGiveupModal() {
+            if (!giveupModalEl) return;
+            isGiveupActive = true;
+            runawayAttempts = 0;
+            resetRunawayButton();
+            giveupModalEl.classList.add('visible');
+            giveupModalEl.setAttribute('aria-hidden', 'false');
+        }
+
+        function hideGiveupModal() {
+            if (!giveupModalEl) return;
+            isGiveupActive = false;
+            giveupModalEl.classList.remove('visible');
+            giveupModalEl.setAttribute('aria-hidden', 'true');
+            resetRunawayButton();
+        }
+
+        function resetRunawayButton() {
+            if (!btnGiveupNo) return;
+            btnGiveupNo.classList.remove('fleeing');
+            btnGiveupNo.style.position = '';
+            btnGiveupNo.style.left = '';
+            btnGiveupNo.style.top = '';
+            btnGiveupNo.style.transform = '';
+            if (giveupActionsContainer && btnGiveupNo.parentElement !== giveupActionsContainer) {
+                giveupActionsContainer.appendChild(btnGiveupNo);
+            }
+        }
+
+        function moveRunawayButton(e) {
+            if (!isGiveupActive || !btnGiveupNo) return;
+            
+            runawayAttempts++;
+            btnGiveupNo.classList.add('fleeing');
+
+            // Khi người chơi cố ấn (nhấp chuột hoặc chạm), nút sẽ lướt sang vị trí ngẫu nhiên mới trên màn hình
+            const padding = 20;
+            const btnW = btnGiveupNo.offsetWidth || 150;
+            const btnH = btnGiveupNo.offsetHeight || 44;
+            const maxW = Math.max(window.innerWidth - btnW - padding * 2, 40);
+            const maxH = Math.max(window.innerHeight - btnH - padding * 2, 40);
+
+            const randomX = padding + Math.floor(Math.random() * maxW);
+            const randomY = padding + Math.floor(Math.random() * maxH);
+
+            btnGiveupNo.style.left = `${randomX}px`;
+            btnGiveupNo.style.top = `${randomY}px`;
+            btnGiveupNo.style.transform = `scale(${Math.random() > 0.5 ? 1.08 : 0.95}) rotate(${(Math.random() - 0.5) * 16}deg)`;
+
+            // Nếu là thiết bị di động chạm vào vị trí cũ, ngăn chặn click ngay tại điểm đó
+            if (e && runawayAttempts < 8) {
+                // Trong vài lần đầu sẽ chủ động né đi thật nhanh
+            }
+        }
+
+        if (btnGiveupNo) {
+            // Khi chuột rê vào hoặc ngón tay chạm vào nút "Không bỏ cuộc", nút sẽ chạy khắp màn hình
+            btnGiveupNo.addEventListener('mouseenter', moveRunawayButton);
+            
+            // Xử lý cảm ứng trên điện thoại: nếu chạm nhẹ sẽ né trước khi nhả tay
+            btnGiveupNo.addEventListener('touchstart', (e) => {
+                if (runawayAttempts < 4) {
+                    e.preventDefault();
+                    moveRunawayButton(e);
+                }
+            }, { passive: false });
+
+            // Nếu người chơi thực sự click/chạm trúng (hoặc đã kiên trì đuổi bắt được nút)
+            btnGiveupNo.addEventListener('click', (e) => {
+                // Nếu chưa né đủ ít nhất 3 lần, tiếp tục né thêm
+                if (runawayAttempts < 3) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    moveRunawayButton(e);
+                    return;
+                }
+
+                // Nếu cô ấy đã click trúng được: khen ngợi và cho chơi lại ngay!
+                hideGiveupModal();
+                showClearFeedback();
+                loadLevel(currentLevel);
+            });
+        }
+
+        if (btnGiveupYes) {
+            btnGiveupYes.addEventListener('click', () => {
+                hideGiveupModal();
+                alert("Ngoan lắm! Nghỉ ngơi xíu đi nhaaa 🥰");
             });
         }
 
