@@ -568,6 +568,72 @@
             box-shadow: 0 8px 24px rgba(255, 42, 109, 0.6);
         }
 
+        .thankyou-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #ffd3e2 0%, #fce4ec 50%, #f8bbd0 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 4000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+            text-align: center;
+        }
+
+        .thankyou-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .thankyou-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 36px 28px;
+            border-radius: 28px;
+            box-shadow: 0 20px 45px rgba(255, 105, 150, 0.25);
+            max-width: 90vw;
+            width: 380px;
+            animation: winBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .thankyou-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: #d81b60;
+        }
+
+        .thankyou-message {
+            font-size: 16px;
+            font-weight: 700;
+            color: #5a2a43;
+            line-height: 1.6;
+        }
+
+        .btn-thankyou-replay {
+            background: linear-gradient(135deg, #ff8fb1 0%, #ff5d8f 100%);
+            color: #ffffff;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 800;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(255, 93, 143, 0.35);
+            margin-top: 8px;
+            transition: transform 0.15s ease;
+        }
+
+        .btn-thankyou-replay:hover {
+            transform: scale(1.05);
+        }
+
         @keyframes winBounce {
             0% { transform: scale(0.8); opacity: 0; }
             100% { transform: scale(1); opacity: 1; }
@@ -699,9 +765,7 @@
     <div class="main-container">
         <div class="panel game-panel">
             <div class="game-banner">
-                <span>🎁</span>
                 <span>Chiến thắng trò chơi để nhận mã QR</span>
-                <span>✨</span>
             </div>
 
             <div class="stats">
@@ -735,7 +799,7 @@
                     </svg>
                     <span>Chơi lại</span>
                 </button>
-                <div class="game-status-hint" id="game-status-hint">Hết nước đi rồi! Bấm Chơi lại nhé ✨</div>
+                <div class="game-status-hint" id="game-status-hint">Hết nước đi rồi, bấm Chơi lại nhé</div>
             </div>
         </div>
 
@@ -747,7 +811,7 @@
             <div class="instructions">
                 <strong>Hướng dẫn chơi:</strong>
                 <ul>
-                    <li style="color: #ff9fbf; font-weight: bold;">⭐ Chiến thắng trò chơi để nhận mã QR!</li>
+                    <li style="color: #ff9fbf; font-weight: bold;">Chiến thắng trò chơi để nhận mã QR!</li>
                     <li>Kéo một khối ở khay bên dưới (khối sẽ sáng lên).</li>
                     <li>Giữ và di chuột lên bàn cờ để xem trước vị trí đặt.</li>
                     <li>Thả chuột trên bàn cờ để đặt góc trên-trái của khối vào ô đó.</li>
@@ -759,21 +823,33 @@
 
     <div class="win-card" id="win-card" aria-hidden="true">
         <div class="win-card-content">
-            <div class="win-card-title">🎉 Chúc Mừng Bạn Đã Chiến Thắng! 🎉</div>
+            <div class="win-card-title">Chúc Mừng Bạn Đã Chiến Thắng</div>
             <div class="win-card-sub">Chiến thắng trò chơi để nhận mã QR</div>
             <button class="win-card-btn" id="btn-win-close">Tiếp tục chơi</button>
         </div>
     </div>
 
-    <!-- Popup trêu chọc khi chơi lại 5 lần liên tiếp -->
+    <!-- Popup khi chơi lại 5 lần liên tiếp -->
     <div class="giveup-modal" id="giveup-modal" aria-hidden="true">
         <div class="giveup-box">
-            <div class="giveup-title">Em bỏ cuộc điii 😜</div>
-            <div class="giveup-sub">Chơi lại 5 lần rồi nè, khó quá thì bỏ cuộc nha?</div>
+            <div class="giveup-title">Em bỏ cuộc điii</div>
+            <div class="giveup-sub">Chơi lại 5 lần rồi nè, khó quá thì nghỉ ngơi xíu nha?</div>
             <div class="giveup-actions" id="giveup-actions-container">
-                <button class="btn-giveup-yes" id="btn-giveup-yes" type="button">Bỏ cuộc 🥺</button>
-                <button class="btn-giveup-no" id="btn-giveup-no" type="button">Không bỏ cuộc! 😤</button>
+                <button class="btn-giveup-yes" id="btn-giveup-yes" type="button">Bỏ cuộc</button>
+                <button class="btn-giveup-no" id="btn-giveup-no" type="button">Không bỏ cuộc</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Màn hình cảm ơn em khi ấn Bỏ cuộc -->
+    <div class="thankyou-screen" id="thankyou-screen" aria-hidden="true">
+        <div class="thankyou-card">
+            <div class="thankyou-title">Cảm Ơn Em</div>
+            <div class="thankyou-message">
+                Cảm ơn em đã kiên nhẫn và dành thời gian chơi trò chơi này cùng anh.<br>
+                Em đã cố gắng rất nhiều rồi, nghỉ ngơi một chút nhé!
+            </div>
+            <button class="btn-thankyou-replay" id="btn-thankyou-replay" type="button">Quay lại trò chơi</button>
         </div>
     </div>
 
@@ -859,6 +935,8 @@
         const btnGiveupYes = document.getElementById('btn-giveup-yes');
         const btnGiveupNo = document.getElementById('btn-giveup-no');
         const giveupActionsContainer = document.getElementById('giveup-actions-container');
+        const thankyouScreenEl = document.getElementById('thankyou-screen');
+        const btnThankyouReplay = document.getElementById('btn-thankyou-replay');
 
         let restartCounter = 0;
         let isGiveupActive = false;
@@ -1738,7 +1816,26 @@
         if (btnGiveupYes) {
             btnGiveupYes.addEventListener('click', () => {
                 hideGiveupModal();
-                alert("Ngoan lắm! Nghỉ ngơi xíu đi nhaaa 🥰");
+                showThankyouScreen();
+            });
+        }
+
+        function showThankyouScreen() {
+            if (!thankyouScreenEl) return;
+            thankyouScreenEl.classList.add('visible');
+            thankyouScreenEl.setAttribute('aria-hidden', 'false');
+        }
+
+        function hideThankyouScreen() {
+            if (!thankyouScreenEl) return;
+            thankyouScreenEl.classList.remove('visible');
+            thankyouScreenEl.setAttribute('aria-hidden', 'true');
+        }
+
+        if (btnThankyouReplay) {
+            btnThankyouReplay.addEventListener('click', () => {
+                hideThankyouScreen();
+                loadLevel(currentLevel);
             });
         }
 
