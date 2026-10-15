@@ -1,0 +1,1575 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Blast Ina-version</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap');
+
+        :root {
+            --bg-color: #f7d9e3;
+            --container-bg: transparent;
+            --accent-color: #ff8fb1;
+            --accent-hover: #ff6f9f;
+            --text-main: #5a2a43;
+            --text-muted: rgba(90, 42, 67, 0.6);
+            --grid-empty: #f8d6e1;
+            --grid-obstacle: #ff6b8a;
+            --grid-preview: rgba(90, 42, 67, 0.12);
+            --block-color: #ff9fbf;
+            --block-texture: url("image.png");
+            --debris-texture: url("heart.png");
+            --cell-gap: clamp(2px, 0.9vw, 4px);
+            --grid-padding: clamp(6px, 1.8vw, 10px);
+            /* Co dãn bàn cờ vừa vặn màn hình điện thoại cả chiều ngang lẫn chiều dọc */
+            --grid-board-size: min(calc(100vw - 28px), calc(100dvh - 230px), 430px);
+            --cell-size: calc((var(--grid-board-size) - (var(--grid-padding) * 2) - (var(--cell-gap) * 7)) / 8);
+            --stats-width: var(--grid-board-size);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            background: radial-gradient(1200px 900px at 50% -200px, #ffd3e2 0%, #f7c3d4 45%, #f2b1c8 100%);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: max(12px, env(safe-area-inset-top, 12px)) 12px max(16px, env(safe-area-inset-bottom, 16px));
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        body.shake {
+            animation: screenShake 0.2s ease-in-out;
+        }
+
+        header {
+            display: none;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .main-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .panel {
+            background-color: var(--container-bg);
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+            width: 100%;
+        }
+
+        .game-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(8px, 2vh, 16px);
+            width: 100%;
+        }
+
+        .import-panel {
+            display: none;
+        }
+
+        .game-banner {
+            width: var(--stats-width);
+            text-align: center;
+            font-size: clamp(14px, 4.2vw, 17px);
+            font-weight: 800;
+            color: #ffffff;
+            background: linear-gradient(135deg, #ff7597 0%, #ff527b 100%);
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 14px rgba(255, 82, 123, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            animation: bannerPulse 2.4s ease-in-out infinite;
+        }
+
+        @keyframes bannerPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 10px rgba(255, 82, 123, 0.25)); }
+            50% { transform: scale(1.02); filter: drop-shadow(0 6px 14px rgba(255, 82, 123, 0.45)); }
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: var(--stats-width);
+            padding: 2px 6px 0;
+            font-size: clamp(20px, 5.5vw, 26px);
+            font-weight: 800;
+            color: var(--accent-color);
+            text-shadow: 0 2px 0 rgba(255, 255, 255, 0.4);
+        }
+
+        .stat-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-right {
+            color: #ffffff;
+            font-size: clamp(20px, 5.5vw, 26px);
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(90, 42, 67, 0.25);
+        }
+
+        .crown-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, var(--cell-size));
+            grid-template-rows: repeat(8, var(--cell-size));
+            gap: var(--cell-gap);
+            background-color: #f8dce6;
+            padding: var(--grid-padding);
+            border-radius: 12px;
+            box-shadow: inset 0 0 0 2px #eaa6bd, 0 10px 24px rgba(90, 42, 67, 0.18);
+            width: var(--grid-board-size);
+            height: var(--grid-board-size);
+            touch-action: none;
+        }
+
+        .cell {
+            background-color: var(--grid-empty);
+            border-radius: 6px;
+            border: 1px solid rgba(90, 42, 67, 0.25);
+            transition: background-color 0.15s ease;
+            cursor: pointer;
+            box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+            width: 100%;
+            height: 100%;
+        }
+
+        .cell.obstacle {
+            background-color: var(--grid-obstacle);
+        }
+
+        .cell.filled {
+            background-color: transparent;
+            background-image: var(--block-texture);
+            background-size: cover;
+            background-position: center;
+            background-blend-mode: multiply;
+            box-shadow: none;
+        }
+
+        .cell.preview {
+            background-color: var(--grid-preview) !important;
+            opacity: 1;
+        }
+
+        .cell.breaking {
+            animation: cellBreak 0.28s ease forwards;
+        }
+
+        .tray {
+            display: flex;
+            gap: clamp(10px, 3.5vw, 24px);
+            justify-content: center;
+            align-items: center;
+            min-height: clamp(80px, 14vh, 110px);
+            width: 100%;
+            background: transparent;
+            padding: 4px 0 0;
+            flex-wrap: nowrap;
+        }
+
+        .tray-block {
+            padding: 6px;
+            border: none;
+            border-radius: 8px;
+            cursor: grab;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+            background: transparent;
+            touch-action: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tray-block:hover {
+            background: transparent;
+            border-color: transparent;
+        }
+
+        .tray-block.selected {
+            border-color: transparent;
+            background: transparent;
+            transform: scale(1.08);
+        }
+
+        .tray-block.dragging {
+            cursor: grabbing;
+            opacity: 0.35;
+        }
+
+        .action-bar {
+            width: var(--stats-width);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .btn-restart-game {
+            background: linear-gradient(135deg, #ff8fb1 0%, #ff5d8f 100%);
+            color: #ffffff;
+            border: none;
+            padding: 10px 28px;
+            font-size: clamp(15px, 4vw, 17px);
+            font-weight: 800;
+            border-radius: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(255, 93, 143, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+            width: min(240px, 80%);
+            letter-spacing: 0.3px;
+        }
+
+        .btn-restart-game:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 18px rgba(255, 93, 143, 0.45);
+            filter: brightness(1.05);
+        }
+
+        .btn-restart-game:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        .game-status-hint {
+            font-size: 14px;
+            font-weight: 700;
+            color: #a0426b;
+            min-height: 20px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .game-status-hint.visible {
+            opacity: 1;
+            animation: hintShake 0.4s ease;
+        }
+
+        @keyframes hintShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        .drag-ghost {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.95;
+            filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.4));
+        }
+
+        .drag-ghost .ghost-cell {
+            width: var(--ghost-cell-size, 45px);
+            height: var(--ghost-cell-size, 45px);
+            border-radius: 6px;
+            background: transparent;
+            box-shadow: none;
+        }
+        
+        .drag-ghost .ghost-cell.filled {
+            background-image: var(--block-texture);
+            background-size: cover;
+            background-position: center;
+            background-blend-mode: multiply;
+            box-shadow: none;
+        }
+
+        .debris-piece {
+            position: fixed;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            background-color: transparent;
+            background-image: var(--debris-texture);
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 1;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+            animation-name: debrisFall;
+            animation-timing-function: ease-out;
+            animation-fill-mode: forwards;
+        }
+
+        .mini-grid {
+            display: grid;
+            gap: 2.5px;
+        }
+
+        .mini-cell {
+            width: clamp(14px, 3.6vw, 20px);
+            height: clamp(14px, 3.6vw, 20px);
+            border-radius: 4px;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .mini-cell.filled {
+            background-image: var(--block-texture);
+            background-size: cover;
+            background-position: center;
+            background-blend-mode: multiply;
+            box-shadow: none;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--grid-empty);
+            color: #34d399;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 6px;
+            resize: none;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .instructions ul {
+            margin-left: 18px;
+            margin-top: 5px;
+        }
+
+        .end-card {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(13, 17, 38, 0.45);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 2000;
+        }
+
+        .end-card.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .end-card-content {
+            background: #f7e08a;
+            color: #2b2f48;
+            padding: 18px 24px;
+            border-radius: 16px;
+            font-size: 20px;
+            font-weight: 800;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.15);
+        }
+
+        .win-card {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(13, 17, 38, 0.65);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 2100;
+        }
+
+        .win-card.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .win-card-content {
+            background: linear-gradient(135deg, #fff275 0%, #ff8fab 100%);
+            color: #2b1d3a;
+            padding: 26px 32px;
+            border-radius: 22px;
+            text-align: center;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+            max-width: 90vw;
+            width: 380px;
+            animation: winBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes winBounce {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .win-card-title {
+            font-size: 22px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            color: #3b1740;
+        }
+
+        .win-card-sub {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #5a2656;
+        }
+
+        .win-card-btn {
+            background: #2b1d3a;
+            color: #fff;
+            border: none;
+            padding: 10px 22px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .win-card-btn:hover {
+            transform: scale(1.05);
+            background: #422557;
+        }
+
+        .clear-feedback {
+            position: fixed;
+            left: 50%;
+            top: 140px;
+            transform: translate(-50%, 0);
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+            opacity: 0;
+            animation: feedbackPop 0.9s ease forwards;
+            z-index: 1500;
+        }
+
+        .meme-rain {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .meme-fall {
+            position: absolute;
+            top: -12vh;
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.65);
+            box-shadow: 0 10px 22px rgba(90, 42, 67, 0.18);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            animation: memeFall linear forwards;
+        }
+
+        @keyframes feedbackPop {
+            0% { opacity: 0; transform: translate(-50%, 10px) scale(0.95); }
+            20% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -12px) scale(1.02); }
+        }
+
+        @keyframes memeFall {
+            0% { transform: translateX(0) translateY(-10%); opacity: 0; }
+            12% { opacity: 0.85; }
+            100% {
+                transform: translateX(var(--drift, 0px)) translateY(calc(120vh + var(--drop-size, 0px)));
+                opacity: 0;
+            }
+        }
+
+        @keyframes cellBreak {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0.25;
+                transform: scale(0.85);
+            }
+        }
+
+        @keyframes debrisFall {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+                opacity: 0.95;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) rotate(var(--rot));
+                opacity: 0;
+            }
+        }
+
+        @keyframes screenShake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-2px, 1px); }
+            50% { transform: translate(1px, -2px); }
+            75% { transform: translate(-1px, 1px); }
+            100% { transform: translate(0, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Block Blast - Ina-version</h1>
+        <p style="color: var(--text-muted);">Chiến thắng trò chơi để nhận mã QR! (Nhập dữ liệu JSON từ Editor để trải nghiệm màn chơi)</p>
+    </header>
+
+    <div class="main-container">
+        <div class="panel game-panel">
+            <div class="game-banner">
+                <span>🎁</span>
+                <span>Chiến thắng trò chơi để nhận mã QR</span>
+                <span>✨</span>
+            </div>
+
+            <div class="stats">
+                <div class="stat-left">
+                    <span class="crown-icon" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" width="22" height="22" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 20l12 10 14-16 14 16 12-10 6 26H0z" fill="#f5c34a"/>
+                            <rect x="10" y="46" width="44" height="10" rx="4" fill="#e3a832"/>
+                            <circle cx="18" cy="20" r="4" fill="#ffd66b"/>
+                            <circle cx="32" cy="12" r="5" fill="#ffd66b"/>
+                            <circle cx="46" cy="20" r="4" fill="#ffd66b"/>
+                        </svg>
+                    </span>
+                    <span id="lbl-score">0</span>
+                    <span id="lbl-name" class="sr-only">Mặc định</span>
+                </div>
+                <div class="stat-right"><span id="lbl-target">200</span></div>
+            </div>
+            
+            <div class="grid" id="game-grid"></div>
+
+            <div class="tray" id="block-tray"></div>
+
+            <div class="action-bar">
+                <button class="btn-restart-game" id="btn-restart" type="button">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                        <path d="M21 3v5h-5"/>
+                        <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                        <path d="M3 21v-5h5"/>
+                    </svg>
+                    <span>Chơi lại</span>
+                </button>
+                <div class="game-status-hint" id="game-status-hint">Hết nước đi rồi! Bấm Chơi lại nhé ✨</div>
+            </div>
+        </div>
+
+        <div class="panel import-panel">
+            <h3 style="margin-bottom: 10px;">Nhập JSON Cấu Hình Màn Chơi</h3>
+            <textarea id="txt-json" placeholder='Dán chuỗi JSON xuất bản từ Level Editor vào đây...'></textarea>
+            <button id="btn-import">Tải Màn Chơi</button>
+
+            <div class="instructions">
+                <strong>Hướng dẫn chơi:</strong>
+                <ul>
+                    <li style="color: #ff9fbf; font-weight: bold;">⭐ Chiến thắng trò chơi để nhận mã QR!</li>
+                    <li>Kéo một khối ở khay bên dưới (khối sẽ sáng lên).</li>
+                    <li>Giữ và di chuột lên bàn cờ để xem trước vị trí đặt.</li>
+                    <li>Thả chuột trên bàn cờ để đặt góc trên-trái của khối vào ô đó.</li>
+                    <li>Lấp đầy hàng ngang hoặc cột dọc để phá hủy chúng và ghi điểm!</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="win-card" id="win-card" aria-hidden="true">
+        <div class="win-card-content">
+            <div class="win-card-title">🎉 Chúc Mừng Bạn Đã Chiến Thắng! 🎉</div>
+            <div class="win-card-sub">Chiến thắng trò chơi để nhận mã QR</div>
+            <button class="win-card-btn" id="btn-win-close">Tiếp tục chơi</button>
+        </div>
+    </div>
+
+    <script>
+        // Danh sách các khối chuẩn và khối cực khó
+        const ALL_SHAPES = {
+            "single": [[1]],
+            "line2_h": [[1, 1]],
+            "line2_v": [[1], [1]],
+            "line3_h": [[1, 1, 1]],
+            "line3_v": [[1], [1], [1]],
+            "line4_h": [[1, 1, 1, 1]],
+            "line4_v": [[1], [1], [1], [1]],
+            "line5_h": [[1, 1, 1, 1, 1]],
+            "line5_v": [[1], [1], [1], [1], [1]],
+            "square2x2": [[1, 1], [1, 1]],
+            "square3x3": [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
+            "lShape": [[1, 0], [1, 0], [1, 1]],
+            "bigL": [[1, 0, 0], [1, 0, 0], [1, 1, 1]],
+            "bigL_inv": [[0, 0, 1], [0, 0, 1], [1, 1, 1]],
+            "tShape": [[1, 1, 1], [0, 1, 0]],
+            "bigT": [[1, 1, 1], [0, 1, 0], [0, 1, 0]],
+            "zShape": [[1, 1, 0], [0, 1, 1]],
+            "sShape": [[0, 1, 1], [1, 1, 0]],
+            "uShape": [[1, 0, 1], [1, 1, 1]],
+            "cross": [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
+            "block3x2": [[1, 1, 1], [1, 1, 1]],
+            "block2x3": [[1, 1], [1, 1], [1, 1]]
+        };
+
+        let currentLevel = {
+            levelName: "Màn chơi cơ bản",
+            targetScore: 200,
+            grid: Array(8).fill().map(() => Array(8).fill(0)),
+            allowedShapes: ["single", "line3_h", "square2x2", "lShape", "tShape"]
+        };
+
+        let gameState = {
+            score: 0,
+            board: Array(8).fill().map(() => Array(8).fill(0)),
+            boardColors: Array(8).fill().map(() => Array(8).fill(null)),
+            boardHues: Array(8).fill().map(() => Array(8).fill(null)),
+            trayBlocks: [],
+            selectedBlockIndex: null,
+            isBreaking: false,
+            isGameOver: false,
+            isWon: false
+        };
+
+        let dragState = {
+            active: false,
+            blockIndex: null,
+            ghostEl: null,
+            grabOffsetX: 0,
+            grabOffsetY: 0,
+            lastSnapRow: null,
+            lastSnapCol: null
+        };
+
+        const MINI_CELL_SIZE = 18;
+        const MINI_CELL_GAP = 2;
+        const BREAK_STAGGER_MS = 60;
+        const BREAK_DURATION_MS = 280;
+        const DEBRIS_FALL_MIN_MS = 900;
+        const DEBRIS_FALL_MAX_MS = 1400;
+        const GRID_SIZE = 8;
+        const RECENT_COLOR_LIMIT = 3;
+        const BLOCK_COLOR_PALETTE = [
+            // Edit these hex colors to control block colors
+            "#b892ff", "#81f7e5", "#FF8FAB", "#ef626c", "#FF5D8F"
+        ];
+
+        const gridEl = document.getElementById('game-grid');
+        const trayEl = document.getElementById('block-tray');
+        const txtJson = document.getElementById('txt-json');
+        const btnImport = document.getElementById('btn-import');
+        const btnRestart = document.getElementById('btn-restart');
+        const gameStatusHint = document.getElementById('game-status-hint');
+        const endCardEl = document.getElementById('end-card');
+        const winCardEl = document.getElementById('win-card');
+        const btnWinClose = document.getElementById('btn-win-close');
+
+        const recentColors = [];
+        let clearFeedbackIndex = 0;
+        const MEME_RAIN_IMAGES = [
+            "meme/1.jpg",
+            "meme/2.jpg",
+            "meme/3.jpg",
+            "meme/4.jpg",
+            "meme/5.jpg",
+            "meme/6.jpg"
+        ];
+        const MEME_RAIN_CONFIG = {
+            minSize: 56,
+            maxSize: 96,
+            minDuration: 5000,
+            maxDuration: 9000,
+            spawnInterval: 950,
+            maxOnScreen: 12,
+            maxDelay: 1200
+        };
+        let memeRainTimerId = null;
+        // Khởi tạo bàn cờ HTML
+        function initHTMLGrid() {
+            gridEl.innerHTML = '';
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        // Đồng bộ trạng thái từ logic sang giao diện
+        function renderBoard() {
+            const cells = gridEl.children;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const index = r * 8 + c;
+                    const cell = cells[index];
+                    cell.className = 'cell';
+                    cell.style.backgroundColor = '';
+                    cell.style.filter = '';
+                    
+                    if (gameState.board[r][c] === 1) {
+                        cell.classList.add('filled');
+                        const color = gameState.boardColors[r][c]
+                            || (BLOCK_COLOR_PALETTE[0] ?? "#7ed957");
+                        cell.style.backgroundColor = color;
+                    } else if (gameState.board[r][c] === 2) {
+                        cell.classList.add('obstacle');
+                    }
+                }
+            }
+            document.getElementById('lbl-score').innerText = gameState.score;
+        }
+
+        function getRandomBlockColor() {
+            const palette = BLOCK_COLOR_PALETTE.length > 0
+                ? BLOCK_COLOR_PALETTE
+                : ["#7ed957"];
+            const blocked = new Set(recentColors.slice(-RECENT_COLOR_LIMIT));
+            const options = palette.filter(color => !blocked.has(color));
+            const pool = options.length > 0 ? options : palette;
+            const color = pool[Math.floor(Math.random() * pool.length)];
+
+            recentColors.push(color);
+            if (recentColors.length > RECENT_COLOR_LIMIT) {
+                recentColors.splice(0, recentColors.length - RECENT_COLOR_LIMIT);
+            }
+
+            return { color };
+        }
+
+        // Phân loại khối tự nhiên
+        const TIER_1_SHAPES = ["single", "line2_h", "line2_v", "line3_h", "line3_v", "square2x2", "lShape"];
+        const TIER_2_SHAPES = ["line3_h", "line3_v", "line4_h", "line4_v", "square2x2", "lShape", "tShape", "zShape", "sShape"];
+        const TIER_3_SHAPES = ["line4_h", "line4_v", "tShape", "zShape", "sShape", "block2x3", "block3x2", "bigL", "bigL_inv"];
+        const TIER_4_SHAPES = ["square3x3", "line5_h", "line5_v", "bigL", "bigL_inv", "bigT", "uShape", "cross", "block3x2", "block2x3"];
+
+        // Đếm số vị trí có thể đặt được một khối trên bàn cờ hiện tại
+        function countValidPlacements(matrix) {
+            let count = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (isValidPlacement(r, c, matrix)) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        // Sinh các khối mới vào khay: tăng độ khó mượt mà, tự nhiên nhưng đảm bảo không thể thắng
+        function spawnTrayBlocks() {
+            trayEl.innerHTML = '';
+            gameState.trayBlocks = [];
+            gameState.selectedBlockIndex = null;
+            gameState.isGameOver = false;
+            setEndCardVisible(false);
+
+            const score = gameState.score;
+            let chosenShapes = [];
+
+            // 1. Chọn pool khối theo tiến trình điểm một cách tự nhiên và liên tục
+            for (let i = 0; i < 3; i++) {
+                let pool;
+                const rand = Math.random();
+
+                if (score < 40) {
+                    // Giai đoạn đầu (0 - 39 điểm): 85% Dễ, 15% Vừa
+                    pool = rand < 0.85 ? TIER_1_SHAPES : TIER_2_SHAPES;
+                } else if (score < 80) {
+                    // Giai đoạn làm quen (40 - 79 điểm): 50% Vừa, 35% Dễ, 15% Khó
+                    if (rand < 0.35) pool = TIER_1_SHAPES;
+                    else if (rand < 0.85) pool = TIER_2_SHAPES;
+                    else pool = TIER_3_SHAPES;
+                } else if (score < 120) {
+                    // Giai đoạn tăng nhiệt (80 - 119 điểm): Khối khó xuất hiện từ từ, tự nhiên
+                    if (rand < 0.20) pool = TIER_1_SHAPES;
+                    else if (rand < 0.65) pool = TIER_2_SHAPES;
+                    else if (rand < 0.90) pool = TIER_3_SHAPES;
+                    else pool = TIER_4_SHAPES;
+                } else if (score < 160) {
+                    // Giai đoạn căng thẳng (120 - 159 điểm): Khối lớn nhiều hơn nhưng vẫn có khối đặt được
+                    if (rand < 0.10) pool = TIER_1_SHAPES;
+                    else if (rand < 0.40) pool = TIER_2_SHAPES;
+                    else if (rand < 0.75) pool = TIER_3_SHAPES;
+                    else pool = TIER_4_SHAPES;
+                } else {
+                    // Giai đoạn cao trào (>= 160 điểm): Chủ yếu là khối trung bình và lớn
+                    if (rand < 0.30) pool = TIER_3_SHAPES;
+                    else pool = TIER_4_SHAPES;
+                }
+
+                const shapeName = pool[Math.floor(Math.random() * pool.length)];
+                chosenShapes.push(shapeName);
+            }
+
+            // 2. Thuật toán kiểm tra tinh tế để đảm bảo game chơi rất mượt nhưng không thể chạm tới 200:
+            // Luôn đảm bảo trong 3 khối thì khối đầu tiên người chơi VẪN ĐẶT ĐƯỢC để không bị ức chế,
+            // nhưng các khối sau sẽ dần thu hẹp bàn cờ tự nhiên khiến người chơi thua vì thiếu chỗ
+            const firstValid = countValidPlacements(ALL_SHAPES[chosenShapes[0]]);
+            if (firstValid === 0 && score < 160) {
+                // Nếu lỡ sinh ra khối không đặt được ở điểm vừa phải, đổi sang khối vừa vặn
+                chosenShapes[0] = TIER_2_SHAPES[Math.floor(Math.random() * TIER_2_SHAPES.length)];
+            }
+
+            // Khi điểm số đạt 180 (rất gần 200): Tự nhiên chọn các khối có kích thước hơi lớn hơn các ô trống còn lại
+            if (score >= 180) {
+                const toughPool = ["square3x3", "bigL", "line5_h", "line5_v", "cross", "bigT", "block3x2", "uShape"];
+                for (let i = 0; i < 3; i++) {
+                    chosenShapes[i] = toughPool[Math.floor(Math.random() * toughPool.length)];
+                }
+            }
+
+            for (let i = 0; i < 3; i++) {
+                const randomShapeName = chosenShapes[i] || "square2x2";
+                const shapeMatrix = ALL_SHAPES[randomShapeName] || ALL_SHAPES["square2x2"];
+                const { color } = getRandomBlockColor();
+                
+                gameState.trayBlocks.push({
+                    name: randomShapeName,
+                    matrix: shapeMatrix,
+                    color,
+                    used: false
+                });
+
+                renderTrayBlock(shapeMatrix, color, i);
+            }
+
+            updateGameOverState();
+        }
+
+        // Vẽ khối lên khay chứa
+        function renderTrayBlock(matrix, color, index) {
+            const blockContainer = document.createElement('div');
+            blockContainer.className = 'tray-block';
+            blockContainer.dataset.index = index;
+            
+            const miniGrid = document.createElement('div');
+            miniGrid.className = 'mini-grid';
+            miniGrid.style.gridTemplateRows = `repeat(${matrix.length}, 1fr)`;
+            miniGrid.style.gridTemplateColumns = `repeat(${matrix[0].length}, 1fr)`;
+
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    const miniCell = document.createElement('div');
+                    miniCell.className = 'mini-cell';
+                    if (matrix[r][c] === 1) {
+                        miniCell.classList.add('filled');
+                        miniCell.style.backgroundColor = color;
+                    }
+                    miniGrid.appendChild(miniCell);
+                }
+            }
+
+            blockContainer.appendChild(miniGrid);
+            blockContainer.addEventListener('pointerdown', (event) => startDragBlock(index, event));
+            trayEl.appendChild(blockContainer);
+        }
+
+        function setSelectedBlock(index) {
+            const blocks = trayEl.children;
+            for (let i = 0; i < blocks.length; i++) {
+                blocks[i].classList.remove('selected');
+            }
+
+            gameState.selectedBlockIndex = index;
+            if (index !== null && blocks[index]) {
+                blocks[index].classList.add('selected');
+            }
+        }
+
+        // Kiểm tra xem vị trí đặt khối có hợp lệ không
+        function isValidPlacement(startRow, startCol, matrix) {
+            if (gameState.isBreaking || gameState.isGameOver) return false;
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    if (matrix[r][c] === 1) {
+                        const targetR = startRow + r;
+                        const targetC = startCol + c;
+                        
+                        if (targetR >= 8 || targetC >= 8) return false;
+                        if (gameState.board[targetR][targetC] !== 0) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function handleCellMouseEnter(startRow, startCol) {
+            if (gameState.selectedBlockIndex === null) return;
+            clearPreview();
+
+            const block = gameState.trayBlocks[gameState.selectedBlockIndex];
+            if (isValidPlacement(startRow, startCol, block.matrix)) {
+                const cells = gridEl.children;
+                for (let r = 0; r < block.matrix.length; r++) {
+                    for (let c = 0; c < block.matrix[0].length; c++) {
+                        if (block.matrix[r][c] === 1) {
+                            const targetR = startRow + r;
+                            const targetC = startCol + c;
+                            const cellIndex = targetR * 8 + targetC;
+                            cells[cellIndex].classList.add('preview');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearPreview() {
+            const previews = gridEl.querySelectorAll('.preview');
+            previews.forEach(el => el.classList.remove('preview'));
+        }
+
+        // Xử lý khi người chơi ấn đặt khối xuống bàn cờ
+        function placeBlockAt(startRow, startCol, blockIndex) {
+            if (blockIndex === null) return false;
+
+            const block = gameState.trayBlocks[blockIndex];
+            if (!block || block.used) return false;
+
+            if (!isValidPlacement(startRow, startCol, block.matrix)) return false;
+
+            // Đặt các block vào mảng trạng thái
+            for (let r = 0; r < block.matrix.length; r++) {
+                for (let c = 0; c < block.matrix[0].length; c++) {
+                    if (block.matrix[r][c] === 1) {
+                        gameState.board[startRow + r][startCol + c] = 1;
+                        gameState.boardColors[startRow + r][startCol + c] = block.color;
+                        gameState.boardHues[startRow + r][startCol + c] = null;
+                    }
+                }
+            }
+
+            // Chỉ tăng điểm khi phá hàng hoặc cột, không tăng khi đặt khối
+            block.used = true;
+            trayEl.children[blockIndex].style.visibility = 'hidden';
+
+            clearPreview();
+            const didClear = checkAndClearLines();
+            if (!didClear) {
+                renderBoard();
+            }
+
+            // Nếu dùng hết 3 block thì hồi lượt mới
+            if (gameState.trayBlocks.every(b => b.used)) {
+                spawnTrayBlocks();
+            } else {
+                updateGameOverState();
+            }
+
+            return true;
+        }
+
+        function createDragGhost(matrix, color) {
+            const ghost = document.createElement('div');
+            ghost.className = 'drag-ghost';
+
+            const ghostGrid = document.createElement('div');
+            ghostGrid.className = 'mini-grid'; 
+            const metrics = getGridMetrics();
+            const cellSize = metrics ? metrics.cellSize : 45;
+            const gap = metrics ? metrics.gap : 4;
+            ghost.style.setProperty('--ghost-cell-size', `${cellSize}px`);
+            ghostGrid.style.gridTemplateRows = `repeat(${matrix.length}, ${cellSize}px)`;
+            ghostGrid.style.gridTemplateColumns = `repeat(${matrix[0].length}, ${cellSize}px)`;
+            ghostGrid.style.gap = `${gap}px`;
+
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    const ghostCell = document.createElement('div');
+                    ghostCell.className = 'ghost-cell';
+                    if (matrix[r][c] === 1) {
+                        ghostCell.classList.add('filled');
+                        ghostCell.style.backgroundColor = color;
+                    }
+                    ghostGrid.appendChild(ghostCell);
+                }
+            }
+
+            ghost.appendChild(ghostGrid);
+            document.body.appendChild(ghost);
+            return ghost;
+        }
+        
+        function startDragBlock(index, event) {
+            if (gameState.isGameOver || gameState.trayBlocks[index].used) return;
+
+            const matrix = gameState.trayBlocks[index].matrix;
+            dragState.active = true;
+            dragState.blockIndex = index;
+            setSelectedBlock(index);
+            dragState.lastSnapRow = null;
+            dragState.lastSnapCol = null;
+            trayEl.children[index].classList.add('dragging');
+
+            const blockEl = trayEl.children[index];
+            const miniGridEl = blockEl.querySelector('.mini-grid');
+            const blockRect = blockEl.getBoundingClientRect();
+            const miniRect = miniGridEl ? miniGridEl.getBoundingClientRect() : blockRect;
+            const metrics = getGridMetrics();
+            const cellSize = metrics ? metrics.cellSize : 45;
+            const gap = metrics ? metrics.gap : 4;
+
+            const ghostWidth = matrix[0].length * cellSize + (matrix[0].length - 1) * gap;
+            const ghostHeight = matrix.length * cellSize + (matrix.length - 1) * gap;
+
+            const relativeX = Math.min(Math.max(event.clientX - miniRect.left, 0), miniRect.width);
+            const relativeY = Math.min(Math.max(event.clientY - miniRect.top, 0), miniRect.height);
+
+            const scaleX = ghostWidth / miniRect.width;
+            const scaleY = ghostHeight / miniRect.height;
+
+            dragState.grabOffsetX = relativeX * scaleX;
+            dragState.grabOffsetY = relativeY * scaleY;
+
+            dragState.ghostEl = createDragGhost(matrix, gameState.trayBlocks[index].color);
+            updateDragGhostPosition(event.clientX, event.clientY);
+            
+            event.preventDefault();
+        }
+
+        function endDragBlock() {
+            const blocks = trayEl.children;
+            for (let i = 0; i < blocks.length; i++) {
+                blocks[i].classList.remove('selected');
+                blocks[i].classList.remove('dragging');
+            }
+            dragState.active = false;
+            dragState.blockIndex = null;
+            dragState.lastSnapRow = null;
+            dragState.lastSnapCol = null;
+            if (dragState.ghostEl) {
+                dragState.ghostEl.remove();
+                dragState.ghostEl = null;
+            }
+            gameState.selectedBlockIndex = null;
+            clearPreview();
+        }
+
+        function updateDragGhostPosition(x, y) {
+            if (!dragState.ghostEl) return;
+            const snap = getSnapPosition(x, y);
+            if (snap) {
+                dragState.ghostEl.style.left = `${snap.left}px`;
+                dragState.ghostEl.style.top = `${snap.top}px`;
+            } else {
+                dragState.ghostEl.style.left = `${x - dragState.grabOffsetX}px`;
+                dragState.ghostEl.style.top = `${y - dragState.grabOffsetY}px`;
+            }
+        }
+
+        function getGridMetrics() {
+            const rect = gridEl.getBoundingClientRect();
+            const cellEl = gridEl.children[0];
+            if (!cellEl) return null;
+
+            const cellRect = cellEl.getBoundingClientRect();
+            const gridStyle = getComputedStyle(gridEl);
+            const gap = Number.parseFloat(gridStyle.gap) || 0;
+            const paddingLeft = Number.parseFloat(gridStyle.paddingLeft) || 0;
+            const paddingTop = Number.parseFloat(gridStyle.paddingTop) || 0;
+
+            return {
+                rect,
+                cellSize: cellRect.width,
+                gap,
+                paddingLeft,
+                paddingTop
+            };
+        }
+
+        function getSnapPosition(x, y) {
+            const metrics = getGridMetrics();
+            if (!metrics) return null;
+
+            const desiredLeft = x - dragState.grabOffsetX;
+            const desiredTop = y - dragState.grabOffsetY;
+            const startX = metrics.rect.left + metrics.paddingLeft;
+            const startY = metrics.rect.top + metrics.paddingTop;
+            const step = metrics.cellSize + metrics.gap;
+
+            const col = Math.round((desiredLeft - startX) / step);
+            const row = Math.round((desiredTop - startY) / step);
+
+            if (row < 0 || col < 0 || row >= GRID_SIZE || col >= GRID_SIZE) {
+                dragState.lastSnapRow = null;
+                dragState.lastSnapCol = null;
+                return null;
+            }
+
+            dragState.lastSnapRow = row;
+            dragState.lastSnapCol = col;
+            return {
+                left: startX + col * step,
+                top: startY + row * step,
+                row,
+                col
+            };
+        }
+
+        function updateDragPreviewFromPoint(x, y) {
+            const snap = getSnapPosition(x, y);
+            if (!snap) {
+                clearPreview();
+                return;
+            }
+
+            handleCellMouseEnter(snap.row, snap.col);
+        }
+
+        document.addEventListener('pointermove', (event) => {
+            if (!dragState.active) return;
+            updateDragGhostPosition(event.clientX, event.clientY);
+            updateDragPreviewFromPoint(event.clientX, event.clientY);
+        });
+
+        document.addEventListener('pointerup', (event) => {
+            if (!dragState.active) return;
+
+            if (dragState.lastSnapRow !== null && dragState.lastSnapCol !== null) {
+                placeBlockAt(dragState.lastSnapRow, dragState.lastSnapCol, dragState.blockIndex);
+            }
+
+            endDragBlock();
+        });
+
+        // Thuật toán kiểm tra và xóa dòng lấp đầy (hàng dọc / hàng ngang)
+        function checkAndClearLines() {
+            let rowsToClear = [];
+            let colsToClear = [];
+            const clearCellKeys = new Set();
+            const cellsToClear = [];
+
+            // Kiểm tra hàng ngang
+            for (let r = 0; r < 8; r++) {
+                if (gameState.board[r].every(cell => cell !== 0)) {
+                    rowsToClear.push(r);
+                }
+            }
+
+            // Kiểm tra cột dọc
+            for (let c = 0; c < 8; c++) {
+                let match = true;
+                for (let r = 0; r < 8; r++) {
+                    if (gameState.board[r][c] === 0) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) colsToClear.push(c);
+            }
+
+            // Thực hiện xóa và cộng điểm
+            let linesCleared = rowsToClear.length + colsToClear.length;
+            if (linesCleared > 0) {
+                rowsToClear.forEach(r => {
+                    for (let c = 0; c < 8; c++) {
+                        const key = `${r},${c}`;
+                        if (!clearCellKeys.has(key)) {
+                            clearCellKeys.add(key);
+                            cellsToClear.push({ r, c });
+                        }
+                    }
+                });
+                colsToClear.forEach(c => {
+                    for (let r = 0; r < 8; r++) {
+                        const key = `${r},${c}`;
+                        if (!clearCellKeys.has(key)) {
+                            clearCellKeys.add(key);
+                            cellsToClear.push({ r, c });
+                        }
+                    }
+                });
+
+                const debrisData = cellsToClear.map(cellPos => {
+                    const cellIndex = cellPos.r * 8 + cellPos.c;
+                    const cellEl = gridEl.children[cellIndex];
+                    if (!cellEl) return null;
+                    return {
+                        rect: cellEl.getBoundingClientRect(),
+                        color: gameState.boardColors[cellPos.r][cellPos.c]
+                    };
+                }).filter(Boolean);
+
+                rowsToClear.forEach(r => {
+                    for (let c = 0; c < 8; c++) {
+                        gameState.board[r][c] = 0;
+                        gameState.boardColors[r][c] = null;
+                        gameState.boardHues[r][c] = null;
+                    }
+                });
+                colsToClear.forEach(c => {
+                    for (let r = 0; r < 8; r++) {
+                        gameState.board[r][c] = 0;
+                        gameState.boardColors[r][c] = null;
+                        gameState.boardHues[r][c] = null;
+                    }
+                });
+                renderBoard();
+
+                playBreakAnimation(debrisData);
+                showClearFeedback(linesCleared);
+
+                // Điểm thưởng combo dòng
+                gameState.score += linesCleared * 20;
+
+                // Cơ chế không thể thắng được: Điểm tối đa chỉ có thể đạt tới 180 (không bao giờ chạm 200)
+                if (gameState.score >= 180) {
+                    gameState.score = 180;
+                }
+                document.getElementById('lbl-score').innerText = gameState.score;
+                
+                // Luôn giữ game không thể thắng được (không bao giờ kích hoạt win-card)
+                return true;
+            }
+            return false;
+        }
+
+        function showClearFeedback(linesCleared) {
+            const options = [
+                { text: 'Gorgeous', color: '#f5c34a' },
+                { text: 'Lovely', color: '#8be36b' },
+                { text: 'Elegant', color: '#ff8a4c' },
+                { text: 'Graceful', color: '#9d6bff' }
+            ];
+
+            const pick = options[clearFeedbackIndex % options.length];
+            clearFeedbackIndex += 1;
+
+            const label = document.createElement('div');
+            label.className = 'clear-feedback';
+            label.textContent = pick.text;
+            label.style.color = pick.color;
+            document.body.appendChild(label);
+
+            setTimeout(() => label.remove(), 2000);
+        }
+
+        function playBreakAnimation(cells) {
+            triggerScreenShake();
+            cells.forEach((cellData, index) => {
+                const delay = index * BREAK_STAGGER_MS;
+                setTimeout(() => {
+                    spawnDebrisAtRect(cellData.rect, cellData.color);
+                }, delay);
+            });
+        }
+
+        function spawnDebrisAtRect(rect, color) {
+            const pieceCount = 4 + Math.floor(Math.random() * 4);
+
+            for (let i = 0; i < pieceCount; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'debris-piece';
+
+                const startX = rect.left + 6 + Math.random() * (rect.width - 12);
+                const startY = rect.top + 6 + Math.random() * (rect.height - 12);
+                const dx = `${Math.round((Math.random() - 0.5) * 80)}px`;
+                const dy = `${Math.round(-80 - Math.random() * 140)}px`;
+                const rot = `${Math.round((Math.random() - 0.5) * 220)}deg`;
+                const duration = Math.round(DEBRIS_FALL_MIN_MS + Math.random() * (DEBRIS_FALL_MAX_MS - DEBRIS_FALL_MIN_MS));
+
+                piece.style.left = `${startX}px`;
+                piece.style.top = `${startY}px`;
+                piece.style.setProperty('--dx', dx);
+                piece.style.setProperty('--dy', dy);
+                piece.style.setProperty('--rot', rot);
+                piece.style.animationDuration = `${duration}ms`;
+
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), duration + 50);
+            }
+        }
+
+        function createMemeRainContainer() {
+            const container = document.createElement('div');
+            container.className = 'meme-rain';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        function getMemeRainSize() {
+            const isNarrow = window.innerWidth < 520;
+            return {
+                min: isNarrow ? 44 : MEME_RAIN_CONFIG.minSize,
+                max: isNarrow ? 76 : MEME_RAIN_CONFIG.maxSize
+            };
+        }
+
+        function spawnMemeDrop(container) {
+            if (document.hidden) return;
+            if (container.children.length >= MEME_RAIN_CONFIG.maxOnScreen) return;
+
+            const { min, max } = getMemeRainSize();
+            const size = Math.round(min + Math.random() * (max - min));
+            const duration = Math.round(MEME_RAIN_CONFIG.minDuration + Math.random() * (MEME_RAIN_CONFIG.maxDuration - MEME_RAIN_CONFIG.minDuration));
+            const delay = Math.round(Math.random() * MEME_RAIN_CONFIG.maxDelay);
+            const drift = Math.round((Math.random() - 0.5) * 120);
+            const left = Math.random() * 100;
+            const image = MEME_RAIN_IMAGES[Math.floor(Math.random() * MEME_RAIN_IMAGES.length)];
+
+            const drop = document.createElement('div');
+            drop.className = 'meme-fall';
+            drop.style.width = `${size}px`;
+            drop.style.height = `${size}px`;
+            drop.style.left = `${left}%`;
+            drop.style.backgroundImage = `url("${image}")`;
+            drop.style.setProperty('--drift', `${drift}px`);
+            drop.style.setProperty('--drop-size', `${size}px`);
+            drop.style.animationDuration = `${duration}ms`;
+            drop.style.animationDelay = `${delay}ms`;
+
+            container.appendChild(drop);
+            setTimeout(() => drop.remove(), duration + delay + 200);
+        }
+
+        function startMemeRain() {
+            const container = createMemeRainContainer();
+            if (memeRainTimerId) {
+                clearInterval(memeRainTimerId);
+            }
+            memeRainTimerId = setInterval(() => spawnMemeDrop(container), MEME_RAIN_CONFIG.spawnInterval);
+        }
+
+        function triggerScreenShake() {
+            document.body.classList.remove('shake');
+            void document.body.offsetWidth;
+            document.body.classList.add('shake');
+        }
+
+        // Kiểm tra điều kiện thua cuộc
+        function checkGameOver() {
+            let hasAnyMove = false;
+
+            for (let i = 0; i < gameState.trayBlocks.length; i++) {
+                const block = gameState.trayBlocks[i];
+                if (block.used) continue;
+
+                // Thử tìm bất kì vị trí nào đặt vừa block này
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        if (isValidPlacement(r, c, block.matrix)) {
+                            hasAnyMove = true;
+                            break;
+                        }
+                    }
+                    if (hasAnyMove) break;
+                }
+                if (hasAnyMove) break;
+            }
+
+            if (!hasAnyMove && gameState.trayBlocks.some(b => !b.used)) {
+                // Game over: tránh popup làm gián đoạn nhịp chơi
+            }
+        }
+
+        function updateGameOverState() {
+            const hasAnyMove = canPlaceAnyRemainingBlock();
+            gameState.isGameOver = !hasAnyMove && gameState.trayBlocks.some(b => !b.used);
+            if (gameState.isGameOver) {
+                setEndCardVisible(true);
+            }
+        }
+
+        function canPlaceAnyRemainingBlock() {
+            for (let i = 0; i < gameState.trayBlocks.length; i++) {
+                const block = gameState.trayBlocks[i];
+                if (block.used) continue;
+
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        if (isValidPlacement(r, c, block.matrix)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        // Tải cấu hình từ chuỗi JSON
+        function loadLevel(levelData) {
+            currentLevel = levelData;
+            document.getElementById('lbl-name').innerText = currentLevel.levelName;
+            document.getElementById('lbl-target').innerText = currentLevel.targetScore;
+            
+            gameState.score = 0;
+            gameState.isGameOver = false;
+            gameState.isWon = false;
+            setEndCardVisible(false);
+            setWinCardVisible(false);
+            // Khởi tạo mảng dựa trên dữ liệu lưới từ JSON
+            gameState.board = Array(8).fill().map(() => Array(8).fill(0));
+            gameState.boardColors = Array(8).fill().map(() => Array(8).fill(null));
+            gameState.boardHues = Array(8).fill().map(() => Array(8).fill(null));
+            if (currentLevel.grid && currentLevel.grid.length === 8) {
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        gameState.board[r][c] = currentLevel.grid[r][c] || 0;
+                        if (gameState.board[r][c] !== 1) {
+                            gameState.boardColors[r][c] = null;
+                            gameState.boardHues[r][c] = null;
+                        }
+                    }
+                }
+            }
+
+            renderBoard();
+            spawnTrayBlocks();
+        }
+
+        // Sự kiện ấn nút Import
+        btnImport.addEventListener('click', () => {
+            try {
+                const parsed = JSON.parse(txtJson.value);
+                if (!parsed.levelName || !parsed.grid) {
+                    alert("Cấu trúc JSON không hợp lệ. Vui lòng kiểm tra lại cấu trúc từ Editor.");
+                    return;
+                }
+                loadLevel(parsed);
+            } catch (e) {
+                alert("Chuỗi dữ liệu nhập vào không phải định dạng JSON hợp lệ.");
+            }
+        });
+
+        if (btnRestart) {
+            btnRestart.addEventListener('click', () => {
+                loadLevel(currentLevel);
+            });
+        }
+
+        if (btnWinClose) {
+            btnWinClose.addEventListener('click', () => {
+                setWinCardVisible(false);
+            });
+        }
+
+        // Tải màn chơi mặc định ban đầu
+        initHTMLGrid();
+        txtJson.value = JSON.stringify(currentLevel, null, 2);
+        loadLevel(currentLevel);
+        startMemeRain();
+
+        function setEndCardVisible(isVisible) {
+            if (gameStatusHint) {
+                if (isVisible) {
+                    gameStatusHint.classList.add('visible');
+                } else {
+                    gameStatusHint.classList.remove('visible');
+                }
+            }
+            if (endCardEl) {
+                if (isVisible) {
+                    endCardEl.classList.add('visible');
+                    endCardEl.setAttribute('aria-hidden', 'false');
+                } else {
+                    endCardEl.classList.remove('visible');
+                    endCardEl.setAttribute('aria-hidden', 'true');
+                }
+            }
+        }
+
+        function setWinCardVisible(isVisible) {
+            if (!winCardEl) return;
+            if (isVisible) {
+                winCardEl.classList.add('visible');
+                winCardEl.setAttribute('aria-hidden', 'false');
+            } else {
+                winCardEl.classList.remove('visible');
+                winCardEl.setAttribute('aria-hidden', 'true');
+            }
+        }
+    </script>
+</body>
+</html>
+
+```
